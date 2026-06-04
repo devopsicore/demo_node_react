@@ -333,6 +333,91 @@ For production deployment, consider:
 5. **Database**: PostgreSQL is included with proper credentials (change for production)
 6. **Image Scanning**: Scan Docker images for vulnerabilities
 
+## GitLab CI/CD Pipeline
+
+This project includes a simple GitLab CI/CD pipeline that pulls code from GitLab and deploys containers using Docker Compose.
+
+### Pipeline Configuration
+
+The `.gitlab-ci.yml` file contains a single deploy stage that:
+- Pulls the latest code from GitLab
+- Stops existing containers
+- Builds and starts all services using docker-compose
+- Displays running containers
+
+### Pipeline Triggers
+
+- **On push to `main`**: Automatically builds and deploys
+- **On push to `develop`**: Automatically builds and deploys
+
+### GitLab Runner Requirements
+
+The GitLab runner must have:
+- Docker installed
+- Docker Compose installed
+- Docker-in-Docker (dind) service enabled
+
+### Setting Up GitLab Runner
+
+1. **Install GitLab Runner** on your server:
+   ```bash
+   curl -L https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.deb.sh | sudo bash
+   sudo apt-get install gitlab-runner
+   ```
+
+2. **Register the runner** with your GitLab project:
+   ```bash
+   sudo gitlab-runner register
+   ```
+   - Enter your GitLab instance URL
+   - Enter the project registration token
+   - Choose docker as executor
+   - Use default image: docker:24.0.5
+
+3. **Configure the runner** to use Docker-in-Docker:
+   Edit `/etc/gitlab-runner/config.toml`:
+   ```toml
+   [[runners]]
+     executor = "docker"
+     [runners.docker]
+       privileged = true
+       disable_cache = false
+       volumes = ["/cache"]
+       extra_hosts = ["host.docker.internal:host-gateway"]
+   ```
+
+4. **Restart GitLab Runner**:
+   ```bash
+   sudo gitlab-runner restart
+   ```
+
+5. **Install Docker Compose** on the runner:
+   ```bash
+   sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+   sudo chmod +x /usr/local/bin/docker-compose
+   ```
+
+### Viewing Pipeline Status
+
+1. Go to your GitLab project
+2. Click "CI/CD" > "Pipelines"
+3. View pipeline status and logs
+
+### Troubleshooting CI/CD
+
+**Pipeline fails with "docker-compose not found"**:
+- Ensure Docker Compose is installed on the GitLab runner
+- Verify the runner has proper permissions
+
+**Build fails with "permission denied"**:
+- Check GitLab runner permissions
+- Ensure runner is configured with privileged mode
+
+**Containers not starting**:
+- Check pipeline logs for errors
+- Verify docker-compose.yml syntax
+- Ensure ports are not already in use
+
 ## Next Steps
 
 To extend this project:
@@ -340,7 +425,7 @@ To extend this project:
 1. Implement authentication
 2. Add database migrations/seeds
 3. Add environment variable configuration
-4. Set up CI/CD pipeline
+4. Set up CI/CD pipeline (✅ Done)
 5. Deploy to cloud (AWS, Azure, GCP)
 6. Add monitoring and logging
 

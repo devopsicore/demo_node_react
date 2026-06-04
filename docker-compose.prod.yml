@@ -17,9 +17,7 @@ services:
     restart: unless-stopped
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ${CI_REGISTRY_IMAGE}/backend:latest
     container_name: emd_node-backend
     ports:
       - "5000:5000"
@@ -38,9 +36,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: ${CI_REGISTRY_IMAGE}/frontend:latest
     container_name: emd_react-frontend
     volumes:
       - ./frontend/build:/app/build

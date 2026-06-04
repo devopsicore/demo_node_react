@@ -1,0 +1,19 @@
+stages:
+  - deploy
+
+variables:
+  DOCKER_TLS_CERTDIR: "/certs"
+
+# Build and Deploy using Docker Compose
+deploy:
+  stage: deploy
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  script:
+    - docker-compose down
+    - docker-compose up --build -d
+    - docker ps
+  only:
+    - main
+    - develop
