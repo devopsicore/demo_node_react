@@ -12,7 +12,9 @@ Demo_node_react_project/
 │   ├── package.json        # Backend dependencies
 │   └── server.js           # Express server
 ├── frontend/
+│   ├── Dockerfile          # Multi-stage Docker configuration for React with nginx
 │   ├── .dockerignore       # Files to exclude from Docker build
+│   ├── nginx.conf          # Nginx configuration with domain support
 │   ├── package.json        # Frontend dependencies
 │   ├── public/
 │   │   └── index.html      # HTML template
