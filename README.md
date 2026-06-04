@@ -12,7 +12,6 @@ Demo_node_react_project/
 │   ├── package.json        # Backend dependencies
 │   └── server.js           # Express server
 ├── frontend/
-│   ├── Dockerfile          # Docker configuration for building React app
 │   ├── .dockerignore       # Files to exclude from Docker build
 │   ├── package.json        # Frontend dependencies
 │   ├── public/
@@ -41,10 +40,10 @@ Before running this Docker deployment, ensure you have:
 
 ### Architecture
 
-- **Backend**: Node.js with Express running on port 5000
-- **Frontend**: React app built in Docker, served by host machine's nginx
-- **PostgreSQL**: PostgreSQL 15 database running on port 5432
-- **Network**: All services communicate via a Docker bridge network
+- **Backend**: Node.js with Express running on port 5000 (Docker)
+- **Frontend**: React app built on host machine, served by host nginx
+- **PostgreSQL**: PostgreSQL 15 database running on port 5432 (Docker)
+- **Network**: Backend and postgres communicate via Docker bridge network
 - **Communication**: Host nginx fetches data from backend API, backend connects to PostgreSQL using service name "postgres"
 
 ### Docker Configuration
@@ -55,19 +54,17 @@ Before running this Docker deployment, ensure you have:
    - Exposes port 5000
    - Runs `npm start`
 
-2. **Frontend Dockerfile**:
-   - Builds React app using Node.js
-   - Exposes build output via volume to host machine
-   - Host nginx serves the static files
+2. **Frontend** (Host-based):
+   - Built directly on host machine using npm
+   - Static files served by host nginx
+   - No Docker container needed
 
 3. **Docker Compose**:
-   - Orchestrates backend and postgres services
-   - Frontend builds React app and exposes build files via volume
+   - Orchestrates backend and postgres services only
    - Creates a shared network
    - Maps ports: 5000 (backend), 5432 (postgres)
    - Handles service dependencies
    - Creates a volume for PostgreSQL data persistence
-   - Mounts frontend build directory to host for nginx serving
 
 ## How to Run
 
@@ -86,24 +83,34 @@ docker-compose up --build
 ```
 
 This command will:
-- Build Docker images for backend
-- Build React app in frontend container
+- Build Docker image for backend
 - Pull PostgreSQL image
 - Start backend and postgres containers
 - Display logs from backend and postgres services
-- Build output will be available in ./frontend/build directory
 
-### Step 3: Configure Host Nginx
+### Step 3: Build Frontend on Host
+
+Build the React application directly on your host machine:
+
+```bash
+cd frontend
+npm install
+npm run build
+```
+
+The build output will be in `./frontend/build` directory.
+
+### Step 4: Configure Host Nginx
 
 Configure nginx on your host machine to serve the React build files. Add a server block to your nginx configuration:
 
 ```nginx
 server {
     listen 80;
-    server_name your-domain.com;  # or localhost
+    server_name demo-emd.apps.org.in;
 
     location / {
-        root f:/Karthi/Demo_node_react_project/frontend/build;
+        root /home/ubuntu/Demo_react_projects/emd_demo/frontend/build;
         index index.html index.htm;
         try_files $uri $uri/ /index.html;
     }
@@ -122,11 +129,11 @@ server {
 
 Restart nginx after configuration:
 ```bash
-# On Windows with nginx installed
-nginx -s reload
+sudo nginx -t
+sudo nginx -s reload
 ```
 
-### Step 4: Access the Application
+### Step 5: Access the Application
 
 Once the containers are running and nginx is configured, access:
 
@@ -136,7 +143,7 @@ Once the containers are running and nginx is configured, access:
 - **Backend Data Endpoint**: http://localhost:5000/api/data
 - **PostgreSQL**: localhost:5432 (user: postgres, password: postgres, database: myapp)
 
-### Step 5: Stop the Application
+### Step 6: Stop the Application
 
 To stop the containers, press `Ctrl+C` in the terminal where Docker Compose is running.
 
@@ -204,11 +211,11 @@ docker-compose up -d backend
 1. **Standard Docker Images**: Uses official Node.js and PostgreSQL images from Docker Hub
 2. **Proper Port Mapping**: Backend (5000) and PostgreSQL (5432) are mapped correctly
 3. **Service Discovery**: Backend uses "postgres" as hostname (Docker DNS resolves this)
-4. **Build Output**: React build files are exposed via volume to host machine
+4. **Host Build**: React app is built directly on host machine using npm
 5. **Bridge Network**: Backend and postgres are on the same Docker network for communication
 6. **CORS Enabled**: Backend has CORS middleware to allow frontend requests
 7. **Data Persistence**: PostgreSQL uses Docker volume for data persistence
-8. **Host Nginx**: You configure nginx on your host machine to serve the React app
+8. **Host Nginx**: Host nginx serves the React static files and proxies API requests
 
 ### ⚠️ Potential Issues and Solutions:
 
