@@ -12,9 +12,7 @@ Demo_node_react_project/
 │   ├── package.json        # Backend dependencies
 │   └── server.js           # Express server
 ├── frontend/
-│   ├── Dockerfile          # Multi-stage Docker configuration for React with nginx
 │   ├── .dockerignore       # Files to exclude from Docker build
-│   ├── nginx.conf          # Nginx configuration with domain support
 │   ├── package.json        # Frontend dependencies
 │   ├── public/
 │   │   └── index.html      # HTML template
@@ -46,7 +44,7 @@ Before running this Docker deployment, ensure you have:
 - **Frontend**: React app built on host machine, served by host nginx
 - **PostgreSQL**: PostgreSQL 15 database running on port 5432 (Docker)
 - **Network**: Backend and postgres communicate via Docker bridge network
-- **Communication**: Host nginx fetches data from backend API, backend connects to PostgreSQL using service name "postgres"
+- **Communication**: Host nginx proxies API requests to backend, backend connects to PostgreSQL using service name "postgres"
 
 ### Docker Configuration
 
@@ -76,19 +74,18 @@ Before running this Docker deployment, ensure you have:
 cd f:\Karthi\Demo_node_react_project
 ```
 
-### Step 2: Build and Start Containers
+### Step 2: Build and Start Docker Containers
 
-Run the following command to build images and start all services:
+Run the following command to build images and start backend and postgres:
 
 ```bash
-docker-compose up --build
+docker-compose up --build -d
 ```
 
 This command will:
 - Build Docker image for backend
 - Pull PostgreSQL image
 - Start backend and postgres containers
-- Display logs from backend and postgres services
 
 ### Step 3: Build Frontend on Host
 
@@ -139,11 +136,11 @@ sudo nginx -s reload
 
 Once the containers are running and nginx is configured, access:
 
-- **Frontend**: http://localhost (or your configured domain)
+- **Frontend**: http://demo-emd.apps.org.in (your configured domain)
 - **Backend API**: http://localhost:5000
 - **Backend Health Check**: http://localhost:5000/api/health
 - **Backend Data Endpoint**: http://localhost:5000/api/data
-- **PostgreSQL**: localhost:5432 (user: postgres, password: postgres, database: myapp)
+- **PostgreSQL**: localhost:5432 (user: emd_user, password: emd_password, database: emd_demo)
 
 ### Step 6: Stop the Application
 
@@ -269,7 +266,7 @@ Once connected, you can run SQL commands:
 ### Test Frontend
 
 Open your browser and navigate to:
-- http://localhost (or your configured nginx domain)
+- http://demo-emd.apps.org.in (your configured domain)
 
 You should see:
 - A React application displaying "React + Node Docker Demo"
