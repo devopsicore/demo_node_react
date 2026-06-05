@@ -35,6 +35,17 @@ services:
       - app-network
     restart: unless-stopped
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: emd_react-frontend
+    ports:
+      - "3000:80"
+    networks:
+      - app-network
+    restart: unless-stopped
+
 volumes:
   postgres-data_emd:
 

@@ -12,7 +12,9 @@ Demo_node_react_project/
 │   ├── package.json        # Backend dependencies
 │   └── server.js           # Express server
 ├── frontend/
+│   ├── Dockerfile          # Multi-stage Docker configuration for React with nginx
 │   ├── .dockerignore       # Files to exclude from Docker build
+│   ├── nginx.conf          # Nginx configuration for frontend container
 │   ├── package.json        # Frontend dependencies
 │   ├── public/
 │   │   └── index.html      # HTML template
@@ -22,6 +24,7 @@ Demo_node_react_project/
 │       ├── index.js        # React entry point
 │       └── index.css       # Global styles
 ├── docker-compose.yml      # Docker Compose orchestration
+├── nginx-host-config.conf  # Host nginx configuration template
 └── README.md              # This file
 ```
 
@@ -40,11 +43,38 @@ Before running this Docker deployment, ensure you have:
 
 ### Architecture
 
+```
+🌍 INTERNET / USER
+       │
+       ▼
+┌────────────────────────┐
+│   HOST NGINX           │
+│ (Reverse Proxy Layer)  │
+└──────────┬─────────────┘
+           │
+   ┌───────┼───────┐
+   │               │
+   ▼               ▼
+┌─────────┐   ┌─────────┐
+│ FRONTEND│   │ BACKEND │
+│ Docker  │   │ Docker  │
+│ :3000   │   │ :5000   │
+└─────────┘   └────┬────┘
+                  │
+                  ▼
+            ┌─────────┐
+│   POSTGRES     │
+│   Docker       │
+│   :5435        │
+└────────────────┘
+```
+
 - **Backend**: Node.js with Express running on port 5000 (Docker)
-- **Frontend**: React app built on host machine, served by host nginx
-- **PostgreSQL**: PostgreSQL 15 database running on port 5432 (Docker)
-- **Network**: Backend and postgres communicate via Docker bridge network
-- **Communication**: Host nginx proxies API requests to backend, backend connects to PostgreSQL using service name "postgres"
+- **Frontend**: React app built and served by nginx in Docker container on port 3000
+- **PostgreSQL**: PostgreSQL 15 database running on port 5435 (Docker)
+- **Host Nginx**: Reverse proxy that routes requests to Docker containers
+- **Network**: All services communicate via Docker bridge network
+- **Communication**: Host nginx proxies / to frontend (port 3000) and /api/ to backend (port 5000)
 
 ### Docker Configuration
 
@@ -54,15 +84,15 @@ Before running this Docker deployment, ensure you have:
    - Exposes port 5000
    - Runs `npm start`
 
-2. **Frontend** (Host-based):
-   - Built directly on host machine using npm
-   - Static files served by host nginx
-   - No Docker container needed
+2. **Frontend Dockerfile** (Multi-stage build):
+   - Stage 1: Builds React app using Node.js
+   - Stage 2: Serves built app with Nginx Alpine
+   - Optimized for production (smaller image size)
 
 3. **Docker Compose**:
-   - Orchestrates backend and postgres services only
+   - Orchestrates all three services (backend, frontend, postgres)
    - Creates a shared network
-   - Maps ports: 5000 (backend), 5432 (postgres)
+   - Maps ports: 3000 (frontend), 5000 (backend), 5435 (postgres)
    - Handles service dependencies
    - Creates a volume for PostgreSQL data persistence
 
@@ -76,71 +106,41 @@ cd f:\Karthi\Demo_node_react_project
 
 ### Step 2: Build and Start Docker Containers
 
-Run the following command to build images and start backend and postgres:
+Run the following command to build images and start all services:
 
 ```bash
 docker-compose up --build -d
 ```
 
 This command will:
-- Build Docker image for backend
+- Build Docker images for backend and frontend
 - Pull PostgreSQL image
-- Start backend and postgres containers
+- Start all three containers (frontend, backend, postgres)
 
-### Step 3: Build Frontend on Host
+### Step 3: Configure Host Nginx
 
-Build the React application directly on your host machine:
+Copy the nginx configuration to your host nginx:
 
 ```bash
-cd frontend
-npm install
-npm run build
+sudo cp nginx-host-config.conf /etc/nginx/sites-available/demo-emd.apps.org.in.conf
+sudo ln -s /etc/nginx/sites-available/demo-emd.apps.org.in.conf /etc/nginx/sites-enabled/
 ```
 
-The build output will be in `./frontend/build` directory.
-
-### Step 4: Configure Host Nginx
-
-Configure nginx on your host machine to serve the React build files. Add a server block to your nginx configuration:
-
-```nginx
-server {
-    listen 80;
-    server_name demo-emd.apps.org.in;
-
-    location / {
-        root /home/ubuntu/Demo_react_projects/emd_demo/frontend/build;
-        index index.html index.htm;
-        try_files $uri $uri/ /index.html;
-    }
-
-    # Proxy API requests to backend
-    location /api/ {
-        proxy_pass http://localhost:5000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
-```
-
-Restart nginx after configuration:
+Test and reload nginx:
 ```bash
 sudo nginx -t
 sudo nginx -s reload
 ```
 
-### Step 5: Access the Application
+### Step 4: Access the Application
 
 Once the containers are running and nginx is configured, access:
 
-- **Frontend**: http://demo-emd.apps.org.in (your configured domain)
-- **Backend API**: http://localhost:5000
-- **Backend Health Check**: http://localhost:5000/api/health
-- **Backend Data Endpoint**: http://localhost:5000/api/data
-- **PostgreSQL**: localhost:5432 (user: emd_user, password: emd_password, database: emd_demo)
+- **Frontend**: http://demo-emd.apps.org.in (proxied to Docker container)
+- **Backend API**: http://demo-emd.apps.org.in/api (proxied to Docker container)
+- **Backend Health Check**: http://demo-emd.apps.org.in/api/health
+- **Backend Data Endpoint**: http://demo-emd.apps.org.in/api/data
+- **PostgreSQL**: localhost:5435 (user: emd_user, password: emd_password, database: emd_demo)
 
 ### Step 6: Stop the Application
 
@@ -181,6 +181,9 @@ docker-compose logs
 # View backend logs only
 docker-compose logs backend
 
+# View frontend logs only
+docker-compose logs frontend
+
 # View postgres logs only
 docker-compose logs postgres
 
@@ -207,14 +210,14 @@ docker-compose up -d backend
 
 ### ✅ What Makes This Work:
 
-1. **Standard Docker Images**: Uses official Node.js and PostgreSQL images from Docker Hub
-2. **Proper Port Mapping**: Backend (5000) and PostgreSQL (5432) are mapped correctly
+1. **Standard Docker Images**: Uses official Node.js, Nginx, and PostgreSQL images from Docker Hub
+2. **Proper Port Mapping**: Frontend (3000), Backend (5000), and PostgreSQL (5435) are mapped correctly
 3. **Service Discovery**: Backend uses "postgres" as hostname (Docker DNS resolves this)
-4. **Host Build**: React app is built directly on host machine using npm
-5. **Bridge Network**: Backend and postgres are on the same Docker network for communication
+4. **Multi-stage Build**: Frontend uses optimized multi-stage build for production
+5. **Bridge Network**: All services are on the same Docker network for communication
 6. **CORS Enabled**: Backend has CORS middleware to allow frontend requests
 7. **Data Persistence**: PostgreSQL uses Docker volume for data persistence
-8. **Host Nginx**: Host nginx serves the React static files and proxies API requests
+8. **Host Nginx**: Host nginx acts as reverse proxy to Docker containers
 
 ### ⚠️ Potential Issues and Solutions:
 
@@ -266,7 +269,7 @@ Once connected, you can run SQL commands:
 ### Test Frontend
 
 Open your browser and navigate to:
-- http://demo-emd.apps.org.in (your configured domain)
+- http://demo-emd.apps.org.in
 
 You should see:
 - A React application displaying "React + Node Docker Demo"
