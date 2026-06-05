@@ -7,7 +7,7 @@ services:
       - POSTGRES_PASSWORD=emd_password
       - POSTGRES_DB=emd_demo
     ports:
-      - "5432:5432"
+      - "5435:5432"
     volumes:
       - postgres-data_emd:/var/lib/postgresql/data
     networks:
